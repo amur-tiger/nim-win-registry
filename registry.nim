@@ -209,7 +209,7 @@ proc getValueKind*(this: RegistryKey, name: string): RegistryValueType {.raises:
     if code != ERROR_SUCCESS:
         raiseError(code)
 
-iterator getValueNames(this: RegistryKey): string {.raises: [RegistryError].} =
+iterator getValueNames*(this: RegistryKey): string {.raises: [RegistryError].} =
     ## Retrieves an iterator of strings that runs over all the value names associated with this key.
 
     var valCount: int32
@@ -246,7 +246,7 @@ iterator getValueNames(this: RegistryKey): string {.raises: [RegistryError].} =
             nameBuffer[nameLen] = 0
             yield $nameBuffer
 
-proc openSubKey(this: RegistryKey, name: string, writable: bool): RegistryKey {.raises: [RegistryError].} =
+proc openSubKey*(this: RegistryKey, name: string, writable: bool): RegistryKey {.raises: [RegistryError].} =
     ## Retrieves a specified subkey, and specifies whether write access is to be applied to the key.
 
     when useWinUnicode:
@@ -257,11 +257,11 @@ proc openSubKey(this: RegistryKey, name: string, writable: bool): RegistryKey {.
     if code != ERROR_SUCCESS:
         raiseError(code)
 
-proc openSubKey(this: RegistryKey, name: string): RegistryKey {.raises: [RegistryError].} =
+proc openSubKey*(this: RegistryKey, name: string): RegistryKey {.raises: [RegistryError].} =
     ## Retrieves a subkey as read-only.
     return this.openSubKey(name, false)
 
-proc setValue[T](this: RegistryKey, name: string, value: T, valueKind: RegistryValueType) {.raises: [RegistryError].} =
+proc setValue*[T](this: RegistryKey, name: string, value: T, valueKind: RegistryValueType) {.raises: [RegistryError].} =
     ## Sets the specified name/value pair in the registry key, using the specified registry data type.
 
     when useWinUnicode:
@@ -274,7 +274,7 @@ proc setValue[T](this: RegistryKey, name: string, value: T, valueKind: RegistryV
     if code != ERROR_SUCCESS:
         raiseError(code)
 
-proc setValue[T](this: RegistryKey, name: string, value: T) {.raises: [RegistryError].} =
+proc setValue*[T](this: RegistryKey, name: string, value: T) {.raises: [RegistryError].} =
     ## Sets the specified name/value pair.
 
     when T is SomeOrdinal:
