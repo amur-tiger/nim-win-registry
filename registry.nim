@@ -29,10 +29,6 @@ proc getErrorMessage(code: int32): string {.raises: [].} =
 proc raiseError(code: int32) {.inline, raises: [RegistryError].} =
     raise newException(RegistryError, $code & ": " & getErrorMessage(code))
 
-proc name*(this: RegistryKey): string {.raises: [RegistryError].} =
-    # todo: query name
-    result = ""
-
 proc close*(this: RegistryKey) {.raises: [RegistryError].} =
     ## Closes the key and flushes it to disk if its contents have been modified.
 
