@@ -35,6 +35,39 @@ type
         REG_RESOURCE_REQUIREMENTS_LIST = 10i32,
         REG_QWORD = 11i32
 
+    ACL = object
+        aclRevision: uint8
+        sbz1: uint8
+        aclSize: uint16
+        aceCount: uint16
+        sbz2: uint16
+
+    SECURITY_INFORMATION = DWORD
+
+    SECURITY_DESCRIPTOR = object
+        revision: uint8
+        sbz1: uint8
+        control: uint16
+        owner: pointer
+        group: pointer
+        sacl: ptr ACL
+        dacl: ptr ACL
+
+when useWinUnicode:
+    type
+        VALENT = object
+            veValuename: WideCString
+            veValuelen: DWORD
+            veValueptr: DWORD
+            veType: DWORD
+else:
+    type
+        VALENT = object
+            veValuename: CString
+            veValuelen: DWORD
+            veValueptr: DWORD
+            veType: DWORD
+
 const
     HKEY_CLASSES_ROOT* = RegistryKey(0x80000000)
     HKEY_CURRENT_USER* = RegistryKey(0x80000001)
@@ -150,10 +183,9 @@ else:
 
 proc regFlushKey*(hKey: RegistryKey): int32 {.stdcall, dynlib: REG_LIB, importc: "RegFlushKey".}
 
-# SECURITY_INFORMATION and SECURITY_DESCRIPTOR are not defined in "winlean"
-#proc regGetKeySecurity*(hKey: RegistryKey, securityInformation: SECURITY_INFORMATION,
-#    pSecurityDescriptor: ptr SECURITY_DESCRIPTOR, lpcbSecurityDescriptor: ptr DWORD): int32
-#    {.stdcall, dynlib: REG_LIB, importc: "RegGetKeySecurity".}
+proc regGetKeySecurity*(hKey: RegistryKey, securityInformation: SECURITY_INFORMATION,
+    pSecurityDescriptor: ptr SECURITY_DESCRIPTOR, lpcbSecurityDescriptor: ptr DWORD): int32
+    {.stdcall, dynlib: REG_LIB, importc: "RegGetKeySecurity".}
 
 when useWinUnicode:
     proc regGetValueW*(hKey: RegistryKey, lpSubKey: WideCString, lpValue: WideCString, dwFlags: DWORD, pdwType: ptr DWORD,
@@ -217,13 +249,12 @@ else:
         lpcMaxValueNameLen: ptr DWORD, lpcValueLen: ptr DWORD, lpcbSecurityDescription: ptr DWORD,
         lpftLastWriteTime: ptr FILETIME): int32 {.stdcall, dynlib: REG_LIB, importc: "RegQueryInfoKeyA".}
 
-# VALENT is not defined in "winlean"
-#when useWinUnicode:
-#    proc regQueryMultipleValuesW*(hKey: RegistryKey, val_list: ptr VALENT, num_vals: DWORD, lpValueBuf: WideCString,
-#        ldwTotsize: ptr DWORD): int32 {.stdcall, dynlib: REG_LIB, importc: "RegQueryMultipleValuesW".}
-#else:
-#    proc regQueryMultipleValuesA*(hKey: RegistryKey, val_list: ptr VALENT, num_vals: DWORD, lpValueBuf: CString,
-#        ldwTotsize: ptr DWORD): int32 {.stdcall, dynlib: REG_LIB, importc: "RegQueryMultipleValuesA".}
+when useWinUnicode:
+    proc regQueryMultipleValuesW*(hKey: RegistryKey, val_list: ptr VALENT, num_vals: DWORD, lpValueBuf: WideCString,
+        ldwTotsize: ptr DWORD): int32 {.stdcall, dynlib: REG_LIB, importc: "RegQueryMultipleValuesW".}
+else:
+    proc regQueryMultipleValuesA*(hKey: RegistryKey, val_list: ptr VALENT, num_vals: DWORD, lpValueBuf: CString,
+        ldwTotsize: ptr DWORD): int32 {.stdcall, dynlib: REG_LIB, importc: "RegQueryMultipleValuesA".}
 
 proc regQueryReflectionKey*(hBase: RegistryKey, bIsReflectionDisabled: ptr WINBOOL): int32
     {.stdcall, dynlib: REG_LIB, importc: "RegQueryReflectionKey".}
@@ -272,9 +303,8 @@ else:
     proc regSetKeyValueA*(hKey: RegistryKey, lpSubKey: CString, lpValueName: CString, dwType: RegistryValueType,
         lpData: ptr DWORD, cbData: DWORD): int32 {.stdcall, dynlib: REG_LIB, importc: "RegSetKeyValueA".}
 
-# SECURITY_INFORMATION and SECURITY_DESCRIPTOR are not defined in "winlean"
-#proc regSetKeySecurity*(hKey: RegistryKey, securityInformation: SECURITY_INFORMATION,
-#    pSecurityDescriptor: ptr SECURITY_DESCRIPTOR): int32 {.stdcall, dynlib: REG_LIB, importc: "RegSetKeySecurity".}
+proc regSetKeySecurity*(hKey: RegistryKey, securityInformation: SECURITY_INFORMATION,
+    pSecurityDescriptor: ptr SECURITY_DESCRIPTOR): int32 {.stdcall, dynlib: REG_LIB, importc: "RegSetKeySecurity".}
 
 when useWinUnicode:
     proc regSetValueExW*(hKey: RegistryKey, lpValueName: WideCString, reserved: DWORD, dwType: RegistryValueType,
