@@ -9,6 +9,7 @@ const
     FORMAT_MESSAGE_FROM_SYSTEM = 0x1000
 
     ERROR_SUCCESS = 0
+    ERROR_FILE_NOT_FOUND = 2
     USER_LANGUAGE = 0x0400
     
     MAX_KEY_LEN = 255
@@ -59,13 +60,12 @@ proc createSubKey*(this: RegistryKey, subkey: string not nil): RegistryKey {.rai
 proc deleteSubKey*(this: RegistryKey, subkey: string not nil, raiseOnMissingSubKey: bool) {.raises: [RegistryError].} =
     ## Deletes the specified subkey, and specifies whether an exception is raised if the subkey is not found.
 
-    {.warning: "The raise switch is ignored for now.".}
     when useWinUnicode:
         let code = regDeleteKeyW(this, newWideCString(subkey))
     else:
         let code = regDeleteKeyA(this, newCString(subkey))
 
-    if code != ERROR_SUCCESS:
+    if code != ERROR_SUCCESS and (raiseOnMissingSubKey or code != ERROR_FILE_NOT_FOUND):
         raiseError(code)
 
 proc deleteSubKey*(this: RegistryKey, subkey: string not nil) {.raises: [RegistryError].} =
@@ -76,14 +76,13 @@ proc deleteSubKeyTree*(this: RegistryKey, subkey: string not nil, raiseOnMissing
     {.raises: [RegistryError].} =
     ## Deletes the specified subkey and any child subkeys recursively, and
     ## specifies whether an exception is raised if the subkey is not found.
-    
-    {.warning: "The raise switch is ignored for now.".}
+
     when useWinUnicode:
         let code = regDeleteTreeW(this, newWideCString(subkey))
     else:
         let code = regDeleteTreeA(this, newCString(subkey))
 
-    if code != ERROR_SUCCESS:
+    if code != ERROR_SUCCESS and (raiseOnMissingSubKey or code != ERROR_FILE_NOT_FOUND):
         raiseError(code)
 
 proc deleteSubKeyTree*(this: RegistryKey, subkey: string not nil) {.raises: [RegistryError].} =
@@ -94,13 +93,12 @@ proc deleteValue*(this: RegistryKey, name: string, raiseOnMissingValue: bool) {.
     ## Deletes the specified value from this key, and specifies whether
     ## an exception is raised if the value is not found.
 
-    {.warning: "The raise switch is ignored for now.".}
     when useWinUnicode:
         let code = regDeleteKeyValueW(this, nil, newWideCString(name))
     else:
         let code = regDeleteKeyValueA(this, nil, newCString(name))
 
-    if code != ERROR_SUCCESS:
+    if code != ERROR_SUCCESS and (raiseOnMissingValue or code != ERROR_FILE_NOT_FOUND):
         raiseError(code)
 
 proc deleteValue*(this: RegistryKey, name: string) {.raises: [RegistryError].} =
