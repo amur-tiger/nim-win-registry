@@ -1,4 +1,4 @@
-import winlean, registrydef
+import strutils, winlean, registrydef
 
 type
     RegistryError* = object of Exception
@@ -149,14 +149,20 @@ iterator getSubKeyNames*(this: RegistryKey): string {.raises: [RegistryError].} 
             nameBuffer[nameLen] = 0
             yield $nameBuffer
 
-proc getValueString*(this: RegistryKey, name: string, default: string): string {.raises: [RegistryError].} =
-    ## Retrieves the value associated with the specified name. If the name is not found, returns
-    ## the default value that you provide.
+proc getValueKind*(this: RegistryKey, name: string): RegistryValueType {.raises: [RegistryError].} =
+    ## Retrieves the registry data type of the value associated with the specified name.
 
-    {.warning: "The default value is ignored for now.".}
-    {.warning: "This does not check if the Registry value is indeed a string. There could be garbage in the output!".}
-    # todo: fetch the value with the correct type, as written in the registry. if it has a different type than
-    # requested (in this case, string), try to cast/transform the value before returning it
+    when useWinUnicode:
+        let code = regQueryValueExW(this, newWideCString(name), nil, result.addr, nil, nil)
+    else:
+        let code = regQueryValueExA(this, newCString(name), nil, result.addr, nil, nil)
+
+    if code != ERROR_SUCCESS:
+        raiseError(code)
+
+proc getRawValueString(this: RegistryKey, name: string, default: string): string {.raises: [RegistryError].} =
+    ## Gets a string value. It is assumed that the value is actually a string.
+
     when useWinUnicode:
         var valueSize: int32
         let codeQuery = regQueryValueExW(this, newWideCString(name), nil, nil, nil, valueSize.addr)
@@ -168,8 +174,10 @@ proc getValueString*(this: RegistryKey, name: string, default: string): string {
 
         let codeGet = regGetValueW(this, nil, newWideCString(name), 0x0000ffff,
             nil, cast[pointer](buffer), valueSize.addr)
-        if codeGet != ERROR_SUCCESS:
+        if codeGet != ERROR_SUCCESS and codeGet != ERROR_FILE_NOT_FOUND:
             raiseError(codeGet)
+        if codeGet == ERROR_FILE_NOT_FOUND:
+            return default
 
         return $buffer
     else:
@@ -183,25 +191,94 @@ proc getValueString*(this: RegistryKey, name: string, default: string): string {
 
         let codeGet = regGetValueA(this, nil, newCString(name), 0x0000ffff,
             nil, cast[pointer](buffer), valueSize.addr)
-        if codeGet != ERROR_SUCCESS:
+        if codeGet != ERROR_SUCCESS and codeGet != ERROR_FILE_NOT_FOUND:
             raiseError(codeGet)
+        if codeGet == ERROR_FILE_NOT_FOUND:
+            return default
 
         return $buffer
+
+proc getRawValueI32(this: RegistryKey, name: string, default: int32): int32 {.raises: [RegistryError].} =
+    ## Gets a DWORD value. It is assumed that the value is actually a DWORD.
+
+    var size = int32(sizeof(result))
+    when useWinUnicode:
+        let code = regGetValueW(this, nil, newWideCString(name), 0x0000ffff, nil, cast[pointer](result.addr), size.addr)
+    else:
+        let code = regGetValueA(this, nil, newCString(name), 0x0000ffff, nil, cast[pointer](result.addr), size.addr)
+
+    if code != ERROR_SUCCESS and code != ERROR_FILE_NOT_FOUND:
+        raiseError(code)
+    if code == ERROR_FILE_NOT_FOUND:
+        result = default
+
+proc getRawValueI64(this: RegistryKey, name: string, default: int64): int64 {.raises: [RegistryError].} =
+    ## Gets a QWORD value. It is assumed that the value is actually a QWORD.
+
+    var size = int32(sizeof(result))
+    when useWinUnicode:
+        let code = regGetValueW(this, nil, newWideCString(name), 0x0000ffff, nil, cast[pointer](result.addr), size.addr)
+    else:
+        let code = regGetValueA(this, nil, newCString(name), 0x0000ffff, nil, cast[pointer](result.addr), size.addr)
+
+    if code != ERROR_SUCCESS and code != ERROR_FILE_NOT_FOUND:
+        raiseError(code)
+    if code == ERROR_FILE_NOT_FOUND:
+        result = default
+
+proc getValueString*(this: RegistryKey, name: string, default: string): string {.raises: [RegistryError].} =
+    ## Retrieves the value associated with the specified name. If the name is not found, returns
+    ## the default value that you provide.
+
+    let kind = this.getValueKind(name)
+    if kind == REG_SZ or kind == REG_EXPAND_SZ:
+        return this.getRawValueString(name, default)
+    if kind == REG_DWORD:
+        # TODO: This ignores the default value!
+        return $this.getRawValueI32(name, 0)
+    if kind == REG_QWORD:
+        # TODO: This ignores the default value!
+        return $this.getRawValueI64(name, 0)
+
+    raise newException(RegistryError, "The registry value is of type " & $kind & ", which is not supported")
+
+proc getValueInt32*(this: RegistryKey, name: string, default: int32): int32
+    {.raises: [RegistryError, ValueError, OverflowError].} =
+    ## Retrieves the value associated with the specified name. If the name is not found, returns
+    ## the default value that you provide.
+
+    let kind = this.getValueKind(name)
+    if kind == REG_SZ or kind == REG_EXPAND_SZ:
+        return int32(parseInt(this.getRawValueString(name, $default)))
+    if kind == REG_DWORD:
+        return this.getRawValueI32(name, default)
+    if kind == REG_QWORD:
+        return int32(this.getRawValueI64(name, default))
+
+proc getValueInt64*(this: RegistryKey, name: string, default: int64): int64 {.raises: [RegistryError, ValueError].} =
+    ## Retrieves the value associated with the specified name. If the name is not found, returns
+    ## the default value that you provide.
+
+    let kind = this.getValueKind(name)
+    if kind == REG_SZ or kind == REG_EXPAND_SZ:
+        return int64(parseBiggestInt(this.getRawValueString(name, $default)))
+    if kind == REG_DWORD:
+        # TODO: The default value can get cut off!
+        return int64(this.getRawValueI32(name, int32(default)))
+    if kind == REG_QWORD:
+        return this.getRawValueI64(name, default)
 
 proc getValueString*(this: RegistryKey, name: string): string {.raises: [RegistryError].} =
     ## Retrieves the value associated with the specified name.
     return this.getValueString(name, nil)
 
-proc getValueKind*(this: RegistryKey, name: string): RegistryValueType {.raises: [RegistryError].} =
-    ## Retrieves the registry data type of the value associated with the specified name.
+proc getValueInt32*(this: RegistryKey, name: string): int32 {.raises: [RegistryError, ValueError, OverflowError].} =
+    ## Retrieves the value associated with the specified name.
+    return this.getValueInt32(name, 0)
 
-    when useWinUnicode:
-        let code = regQueryValueExW(this, newWideCString(name), nil, result.addr, nil, nil)
-    else:
-        let code = regQueryValueExA(this, newCString(name), nil, result.addr, nil, nil)
-
-    if code != ERROR_SUCCESS:
-        raiseError(code)
+proc getValueInt64*(this: RegistryKey, name: string): int64 {.raises: [RegistryError, ValueError, OverflowError].} =
+    ## Retrieves the value associated with the specified name.
+    return this.getValueInt64(name, 0)
 
 iterator getValueNames*(this: RegistryKey): string {.raises: [RegistryError].} =
     ## Retrieves an iterator of strings that runs over all the value names associated with this key.
