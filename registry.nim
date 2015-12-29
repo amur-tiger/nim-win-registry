@@ -11,7 +11,7 @@ const
     ERROR_SUCCESS = 0
     ERROR_FILE_NOT_FOUND = 2
     USER_LANGUAGE = 0x0400
-    
+
     MAX_KEY_LEN = 255
     MAX_VALUE_LEN = 16383
 
@@ -34,7 +34,7 @@ proc close*(this: RegistryKey) {.raises: [RegistryError].} =
     ## Closes the key and flushes it to disk if its contents have been modified.
 
     let code = regCloseKey(this)
-    if code != ERROR_SUCCESS:
+    if unlikely(code != ERROR_SUCCESS):
         raiseError(code)
 
 proc createSubKey*(this: RegistryKey, subkey: string not nil, writable: bool): RegistryKey {.raises: [RegistryError].} =
@@ -43,12 +43,12 @@ proc createSubKey*(this: RegistryKey, subkey: string not nil, writable: bool): R
     var createdHandle: RegistryKey
     when useWinUnicode:
         let code = regCreateKeyExW(this, newWideCString(subkey), 0, nil, 0,
-            if writable: KEY_WRITE else: KEY_READ, nil, createdHandle.addr, nil)
+            if writable: KEY_ALL_ACCESS else: KEY_READ, nil, createdHandle.addr, nil)
     else:
         let code = regCreateKeyExA(this, newCString(subkey), 0, nil, 0,
-            if writable: KEY_WRITE else: KEY_READ, nil, createdHandle.addr, nil)
+            if writable: KEY_ALL_ACCESS else: KEY_READ, nil, createdHandle.addr, nil)
 
-    if code != ERROR_SUCCESS:
+    if unlikely(code != ERROR_SUCCESS):
         raiseError(code)
 
     return createdHandle
@@ -65,7 +65,7 @@ proc deleteSubKey*(this: RegistryKey, subkey: string not nil, raiseOnMissingSubK
     else:
         let code = regDeleteKeyA(this, newCString(subkey))
 
-    if code != ERROR_SUCCESS and (raiseOnMissingSubKey or code != ERROR_FILE_NOT_FOUND):
+    if unlikely(code != ERROR_SUCCESS) and (raiseOnMissingSubKey or code != ERROR_FILE_NOT_FOUND):
         raiseError(code)
 
 proc deleteSubKey*(this: RegistryKey, subkey: string not nil) {.raises: [RegistryError].} =
@@ -82,7 +82,7 @@ proc deleteSubKeyTree*(this: RegistryKey, subkey: string not nil, raiseOnMissing
     else:
         let code = regDeleteTreeA(this, newCString(subkey))
 
-    if code != ERROR_SUCCESS and (raiseOnMissingSubKey or code != ERROR_FILE_NOT_FOUND):
+    if unlikely(code != ERROR_SUCCESS) and (raiseOnMissingSubKey or code != ERROR_FILE_NOT_FOUND):
         raiseError(code)
 
 proc deleteSubKeyTree*(this: RegistryKey, subkey: string not nil) {.raises: [RegistryError].} =
@@ -98,7 +98,7 @@ proc deleteValue*(this: RegistryKey, name: string, raiseOnMissingValue: bool) {.
     else:
         let code = regDeleteKeyValueA(this, nil, newCString(name))
 
-    if code != ERROR_SUCCESS and (raiseOnMissingValue or code != ERROR_FILE_NOT_FOUND):
+    if unlikely(code != ERROR_SUCCESS) and (raiseOnMissingValue or code != ERROR_FILE_NOT_FOUND):
         raiseError(code)
 
 proc deleteValue*(this: RegistryKey, name: string) {.raises: [RegistryError].} =
@@ -109,7 +109,7 @@ proc flush*(this: RegistryKey) {.raises: [RegistryError].} =
     ## Writes all the attributes of the specified open registry key into the registry.
 
     let code = regFlushKey(this)
-    if code != ERROR_SUCCESS:
+    if unlikely(code != ERROR_SUCCESS):
         raiseError(code)
 
 iterator getSubKeyNames*(this: RegistryKey): string {.raises: [RegistryError].} =
@@ -118,7 +118,7 @@ iterator getSubKeyNames*(this: RegistryKey): string {.raises: [RegistryError].} 
     var keyCount: int32
     when useWinUnicode:
         let code = regQueryInfoKeyW(this, nil, nil, nil, keyCount.addr, nil, nil, nil, nil, nil, nil, nil)
-        if code != ERROR_SUCCESS:
+        if unlikely(code != ERROR_SUCCESS):
             raiseError(code)
 
         var nameBuffer: WideCString
@@ -127,14 +127,14 @@ iterator getSubKeyNames*(this: RegistryKey): string {.raises: [RegistryError].} 
         for i in 0..<keyCount:
             var nameLen: int32 = MAX_KEY_LEN
             let code = regEnumKeyExW(this, int32(i), nameBuffer, nameLen.addr, nil, nil, nil, nil)
-            if code != ERROR_SUCCESS:
+            if unlikely(code != ERROR_SUCCESS):
                 raiseError(code)
 
             nameBuffer[nameLen] = Utf16Char(0)
             yield $nameBuffer
     else:
         let code = regQueryInfoKeyA(this, nil, nil, nil, keyCount.addr, nil, nil, nil, nil, nil, nil, nil)
-        if code != ERROR_SUCCESS:
+        if unlikely(code != ERROR_SUCCESS):
             raiseError(code)
 
         var nameBuffer: CString
@@ -143,7 +143,7 @@ iterator getSubKeyNames*(this: RegistryKey): string {.raises: [RegistryError].} 
         for i in 0..<keyCount:
             var nameLen: int32 = MAX_KEY_LEN
             let code = regEnumKeyExA(this, int32(i), nameBuffer, nameLen.addr, nil, nil, nil, nil)
-            if code != ERROR_SUCCESS:
+            if unlikely(code != ERROR_SUCCESS):
                 raiseError(code)
 
             nameBuffer[nameLen] = 0
@@ -163,7 +163,7 @@ proc tryGetValue*[T](this: RegistryKey, name: string, value: var T): bool
 
     if code == ERROR_FILE_NOT_FOUND:
         return false
-    if code != ERROR_SUCCESS:
+    if unlikely(code != ERROR_SUCCESS):
         raiseError(code)
 
     case kind:
@@ -180,7 +180,7 @@ proc tryGetValue*[T](this: RegistryKey, name: string, value: var T): bool
 
         if code == ERROR_FILE_NOT_FOUND:
             return false
-        if code != ERROR_SUCCESS:
+        if unlikely(code != ERROR_SUCCESS):
             raiseError(code)
 
         when T is SomeNumber:
@@ -204,7 +204,7 @@ proc tryGetValue*[T](this: RegistryKey, name: string, value: var T): bool
 
         if code == ERROR_FILE_NOT_FOUND:
             return false
-        if code != ERROR_SUCCESS:
+        if unlikely(code != ERROR_SUCCESS):
             raiseError(code)
 
         when T is SomeNumber:
@@ -228,7 +228,7 @@ proc tryGetValue*[T](this: RegistryKey, name: string, value: var T): bool
 
         if code == ERROR_FILE_NOT_FOUND:
             return false
-        if code != ERROR_SUCCESS:
+        if unlikely(code != ERROR_SUCCESS):
             raiseError(code)
 
         when T is SomeNumber:
@@ -257,7 +257,7 @@ proc tryGetValue*[T](this: RegistryKey, name: string, value: var T): bool
 
         if code == ERROR_FILE_NOT_FOUND:
             return false
-        if code != ERROR_SUCCESS:
+        if unlikely(code != ERROR_SUCCESS):
             raiseError(code)
 
         when T is SomeOrdinal:
@@ -290,7 +290,7 @@ proc getValueKind*(this: RegistryKey, name: string): RegistryValueType {.raises:
     else:
         let code = regQueryValueExA(this, newCString(name), nil, result.addr, nil, nil)
 
-    if code != ERROR_SUCCESS:
+    if unlikely(code != ERROR_SUCCESS):
         raiseError(code)
 
 iterator getValueNames*(this: RegistryKey): string {.raises: [RegistryError].} =
@@ -299,7 +299,7 @@ iterator getValueNames*(this: RegistryKey): string {.raises: [RegistryError].} =
     var valCount: int32
     when useWinUnicode:
         let code = regQueryInfoKeyW(this, nil, nil, nil, nil, nil, nil, valCount.addr, nil, nil, nil, nil)
-        if code != ERROR_SUCCESS:
+        if unlikely(code != ERROR_SUCCESS):
             raiseError(code)
 
         var nameBuffer: WideCString
@@ -308,14 +308,14 @@ iterator getValueNames*(this: RegistryKey): string {.raises: [RegistryError].} =
         for i in 0..<valCount:
             var nameLen: int32 = MAX_VALUE_LEN
             let code = regEnumValueW(this, int32(i), nameBuffer, nameLen.addr, nil, nil, nil, nil)
-            if code != ERROR_SUCCESS:
+            if unlikely(code != ERROR_SUCCESS):
                 raiseError(code)
 
             nameBuffer[nameLen] = Utf16Char(0)
             yield $nameBuffer
     else:
         let code = regQueryInfoKeyA(this, nil, nil, nil, nil, nil, nil, valCount.addr, nil, nil, nil, nil)
-        if code != ERROR_SUCCESS:
+        if unlikely(code != ERROR_SUCCESS):
             raiseError(code)
 
         var nameBuffer: CString
@@ -324,7 +324,7 @@ iterator getValueNames*(this: RegistryKey): string {.raises: [RegistryError].} =
         for i in 0..<valCount:
             var nameLen: int32 = MAX_VALUE_LEN
             let code = regEnumValueA(this, int32(i), nameBuffer, nameLen.addr, nil, nil, nil, nil)
-            if code != ERROR_SUCCESS:
+            if unlikely(code != ERROR_SUCCESS):
                 raiseError(code)
 
             nameBuffer[nameLen] = 0
@@ -334,41 +334,51 @@ proc openSubKey*(this: RegistryKey, name: string, writable: bool): RegistryKey {
     ## Retrieves a specified subkey, and specifies whether write access is to be applied to the key.
 
     when useWinUnicode:
-        let code = regOpenKeyExW(this, newWideCString(name), 0, if writable: KEY_WRITE else: KEY_READ, result.addr)
+        let code = regOpenKeyExW(this, newWideCString(name), 0, if writable: KEY_ALL_ACCESS else: KEY_READ, result.addr)
     else:
-        let code = regOpenKeyExA(this, newCString(name), 0, if writable: KEY_WRITE else: KEY_READ, result.addr)
+        let code = regOpenKeyExA(this, newCString(name), 0, if writable: KEY_ALL_ACCESS else: KEY_READ, result.addr)
 
-    if code != ERROR_SUCCESS:
+    if unlikely(code != ERROR_SUCCESS):
         raiseError(code)
 
 proc openSubKey*(this: RegistryKey, name: string): RegistryKey {.raises: [RegistryError].} =
     ## Retrieves a subkey as read-only.
     return this.openSubKey(name, false)
 
-proc setValue*[T](this: RegistryKey, name: string, value: T, valueKind: RegistryValueType) {.raises: [RegistryError].} =
+proc setValue[T](this: RegistryKey, name: string, value: T, valueKind: RegistryValueType) {.raises: [RegistryError].} =
     ## Sets the specified name/value pair in the registry key, using the specified registry data type.
 
-    when useWinUnicode:
-        let code = regSetKeyValueW(this, nil, newWideCString(name), valueKind,
-            when value is string: cast[ptr int32](newWideCString(value)) else: value.addr, int32(sizeof(value)))
+    when T is string:
+        when useWinUnicode:
+            let wstr = newWideCString(value)
+            let code = regSetKeyValueW(this, nil, newWideCString(name), valueKind,
+                cast[pointer](wstr), int32(wstr.len * sizeof(Utf16Char) + sizeof(Utf16Char)))
+        else:
+            let cstr = newCString(value)
+            let code = regSetKeyValueExA(this, nil, newCString(name), valueKind,
+                cast[pointer](cstr), int32(cstr.len + 1))
+    elif T is SomeNumber:
+        var val = value
+        when useWinUnicode:
+            let code = regSetKeyValueW(this, nil, newWideCString(name), valueKind, val.addr, int32(sizeof(value)))
+        else:
+            let code = regSetKeyValueA(this, nil, newCString(name), valueKind, val.addr, int32(sizeof(value)))
     else:
-        let code = regSetKeyValueExA(this, nil, newCString(name), valueKind,
-            when value is string: cast[ptr int32](newCString(value)) else: value.addr, int32(sizeof(value)))
+        {.fatal: "A value of type " & T.name & " cannot be written directly to the registry.".}
 
-    if code != ERROR_SUCCESS:
+    if unlikely(code != ERROR_SUCCESS):
         raiseError(code)
 
 proc setValue*[T](this: RegistryKey, name: string, value: T) {.raises: [RegistryError].} =
     ## Sets the specified name/value pair.
 
-    when T is SomeOrdinal:
+    when T is int64 or T is uint64 or ((T is int or T is uint) and (sizeof(int) == 8)):
+        this.setValue(name, value, REG_QWORD)
+    elif T is SomeOrdinal:
         this.setValue(name, value, REG_DWORD)
+    elif T is SomeReal:
+        this.setValue(name, float64(value), REG_BINARY)
+    elif T is string:
+        this.setValue(name, value, REG_SZ)
     else:
-        when T is SomeReal:
-            this.setValue(name, value, REG_BINARY)
-        else:
-            when T is string:
-                this.setValue(name, value, REG_SZ)
-            else:
-                #{.fatal: "A value of type " & T.name & " cannot be written directly to the registry.".}
-                {.fatal: "A value of this type cannot be written directly to the registry.".}
+        {.fatal: "A value of type " & T.name & " cannot be written directly to the registry.".}

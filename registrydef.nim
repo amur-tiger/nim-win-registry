@@ -298,10 +298,10 @@ else:
 
 when useWinUnicode:
     proc regSetKeyValueW*(hKey: RegistryKey, lpSubKey: WideCString, lpValueName: WideCString, dwType: RegistryValueType,
-        lpData: ptr DWORD, cbData: DWORD): int32 {.stdcall, dynlib: REG_LIB, importc: "RegSetKeyValueW".}
+        lpData: pointer, cbData: DWORD): int32 {.stdcall, dynlib: REG_LIB, importc: "RegSetKeyValueW".}
 else:
     proc regSetKeyValueA*(hKey: RegistryKey, lpSubKey: CString, lpValueName: CString, dwType: RegistryValueType,
-        lpData: ptr DWORD, cbData: DWORD): int32 {.stdcall, dynlib: REG_LIB, importc: "RegSetKeyValueA".}
+        lpData: pointer, cbData: DWORD): int32 {.stdcall, dynlib: REG_LIB, importc: "RegSetKeyValueA".}
 
 proc regSetKeySecurity*(hKey: RegistryKey, securityInformation: SECURITY_INFORMATION,
     pSecurityDescriptor: ptr SECURITY_DESCRIPTOR): int32 {.stdcall, dynlib: REG_LIB, importc: "RegSetKeySecurity".}
