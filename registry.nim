@@ -372,7 +372,15 @@ proc setValue[T](this: RegistryKey, name: string, value: T, valueKind: RegistryV
 proc setValue*[T](this: RegistryKey, name: string, value: T) {.raises: [RegistryError].} =
     ## Sets the specified name/value pair.
 
-    when T is int64 or T is uint64 or ((T is int or T is uint) and (sizeof(int) == 8)):
+    # int and uint get a special handling on 64bit because of consistency,
+    # else writing the value on 64bit and reading the value on 32bit might cause problems.
+    when T is int and sizeof(int) == 8:
+        {.warning: "Only a REG_DWORD is written when using int in 64bit mode.".}
+        this.setValue(name, int32(value), REG_DWORD)
+    when T is uint and sizeof(uint) == 8:
+        {.warning: "Only a REG_DWORD is written when using uint in 64bit mode.".}
+        this.setValue(name, uint32(value), REG_DWORD)
+    when T is int64 or T is uint64:
         this.setValue(name, value, REG_QWORD)
     elif T is SomeOrdinal:
         this.setValue(name, value, REG_DWORD)
